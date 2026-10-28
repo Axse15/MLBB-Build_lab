@@ -1,0 +1,43 @@
+# Pemeriksa data usang, tiap Senin pagi WIB. Hanya memakai Rone Arena API.
+# Tidak mengubah kode app: menyimpan snapshot API dan membuka Issue kalau ada yang baru atau berubah.
+name: Cek data usang
+
+on:
+  schedule:
+    - cron: '17 3 * * 1' # Senin 03:17 UTC = 10:17 WIB
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # commit scripts/api-snapshot.json
+  issues: write # buka Issue laporan
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # API tidak terjangkau = langkah ini keluar tanpa mengubah apa pun dan tidak gagal.
+      - run: npm run drift
+      - name: Simpan snapshot
+        run: |
+          if [ -n "$(git status --porcelain scripts/api-snapshot.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add scripts/api-snapshot.json
+            git commit -m "chore: perbarui snapshot data API"
+            git push
+          fi
+      - name: Buka Issue kalau ada yang perlu dicek
+        if: ${{ hashFiles('drift-report.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create data-drift --description "Data statis mungkin tertinggal dari API" --color FBCA04 --force
+          gh issue create --title "Data statis mungkin tertinggal ($(date +%F))" --label data-drift --body-file drift-report.md

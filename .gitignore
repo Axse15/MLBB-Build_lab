@@ -1,0 +1,6 @@
+node_modules
+dist
+drift-report.md
+.env
+.env.local
+.env.*.local

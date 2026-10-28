@@ -1,0 +1,928 @@
+{
+ "at": "2026-10-28",
+ "version": "2.1.18",
+ "items": [
+  {
+   "name": "Bud of Hope",
+   "type": ""
+  },
+  {
+   "name": "Flower of Hope",
+   "type": ""
+  },
+  {
+   "name": "Shimmering Lantern",
+   "type": ""
+  },
+  {
+   "name": "Lantern of Hope",
+   "type": ""
+  },
+  {
+   "name": "Demon Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Demon Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Demon Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Demon Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Rapid Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Rapid Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Rapid Boots- Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Rapid Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Swift Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Swift Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Swift Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Swift Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Arcane Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Arcane Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Arcane Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Arcane Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Magic Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Magic Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Magic Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Magic Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Tough Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Tough Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Tough Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Tough Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Warrior Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Warrior Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Warrior Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Warrior Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Courage Mask",
+   "type": ""
+  },
+  {
+   "name": "Awe Mask",
+   "type": ""
+  },
+  {
+   "name": "Behemoth Hunter's Demon Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Shadow Mask",
+   "type": ""
+  },
+  {
+   "name": "Flame Hunter's Demon Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Demon Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Rapid Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Rapid Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Rapid Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Swift Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Swift Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Swift Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Arcane Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Arcane Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Magic Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Arcane Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Magic Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Magic Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Tough Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Tough Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Behemoth Hunter's Warrior Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Tough Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Warrior Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Warrior Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Raptor Machete",
+   "type": ""
+  },
+  {
+   "name": "Beast Killer",
+   "type": ""
+  },
+  {
+   "name": "Chastise Pauldron",
+   "type": "Defense"
+  },
+  {
+   "name": "Star Shard",
+   "type": ""
+  },
+  {
+   "name": "破碎流年（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "Radiant Armor",
+   "type": "Defense"
+  },
+  {
+   "name": "Twilight Armor (Discarded)",
+   "type": ""
+  },
+  {
+   "name": "Brute Force Breastplate",
+   "type": "Defense"
+  },
+  {
+   "name": "Immortality",
+   "type": "Defense"
+  },
+  {
+   "name": "Dominance Ice",
+   "type": "Defense"
+  },
+  {
+   "name": "Athena's Shield",
+   "type": "Defense"
+  },
+  {
+   "name": "Oracle",
+   "type": "Defense"
+  },
+  {
+   "name": "Guardian Helmet",
+   "type": "Defense"
+  },
+  {
+   "name": "Clock of Destiny",
+   "type": "Magic"
+  },
+  {
+   "name": "Antique Cuirass",
+   "type": "Defense"
+  },
+  {
+   "name": "Cursed Helmet",
+   "type": "Defense"
+  },
+  {
+   "name": "Genius Wand",
+   "type": "Magic"
+  },
+  {
+   "name": "Flask of the Oasis",
+   "type": "Magic"
+  },
+  {
+   "name": "Fleeting Time",
+   "type": "Magic"
+  },
+  {
+   "name": "Lightning Truncheon",
+   "type": "Magic"
+  },
+  {
+   "name": "命运刻钟（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "Blood Wings",
+   "type": "Magic"
+  },
+  {
+   "name": "Glowing Wand",
+   "type": "Magic"
+  },
+  {
+   "name": "Starlium Scythe",
+   "type": "Magic"
+  },
+  {
+   "name": "Concentrated Energy",
+   "type": "Magic"
+  },
+  {
+   "name": "Ice Queen Wand",
+   "type": "Magic"
+  },
+  {
+   "name": "Divine Glaive",
+   "type": "Magic"
+  },
+  {
+   "name": "Holy Crystal",
+   "type": "Magic"
+  },
+  {
+   "name": "Great Dragon Spear",
+   "type": "Attack"
+  },
+  {
+   "name": "Malefic Gun",
+   "type": "Attack"
+  },
+  {
+   "name": "Rose Gold Meteor",
+   "type": "Attack"
+  },
+  {
+   "name": "Sea Halberd",
+   "type": "Attack"
+  },
+  {
+   "name": "Bloodlust Axe",
+   "type": ""
+  },
+  {
+   "name": "Goldshine Hammer (removed)",
+   "type": ""
+  },
+  {
+   "name": "Blade of Despair",
+   "type": "Attack"
+  },
+  {
+   "name": "Scarlet Phantom",
+   "type": ""
+  },
+  {
+   "name": "Hunter Strike",
+   "type": "Attack"
+  },
+  {
+   "name": "Blade of the Heptaseas",
+   "type": "Attack"
+  },
+  {
+   "name": "Endless Battle",
+   "type": "Attack"
+  },
+  {
+   "name": "Windtalker",
+   "type": "Attack"
+  },
+  {
+   "name": "Haas' Claws",
+   "type": "Attack"
+  },
+  {
+   "name": "Malefic Roar",
+   "type": "Attack"
+  },
+  {
+   "name": "Berserker's Fury",
+   "type": "Attack"
+  },
+  {
+   "name": "Iron Mask",
+   "type": ""
+  },
+  {
+   "name": "Pillager Axe",
+   "type": ""
+  },
+  {
+   "name": "Nimble Blade",
+   "type": ""
+  },
+  {
+   "name": "Demon Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Curse Sword",
+   "type": ""
+  },
+  {
+   "name": "Swift Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Rapid Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Magic Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Arcane Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Tough Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Warrior Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "女王之翼（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "Thunder Belt",
+   "type": "Defense"
+  },
+  {
+   "name": "雷霆腰带（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "Ares Crown (removed)",
+   "type": ""
+  },
+  {
+   "name": "Blade Armor",
+   "type": "Defense"
+  },
+  {
+   "name": "Queen's Wings",
+   "type": "Defense"
+  },
+  {
+   "name": "Dreadnaught Armor",
+   "type": "Defense"
+  },
+  {
+   "name": "Steel Legplates",
+   "type": "Defense"
+  },
+  {
+   "name": "Black Ice Shield",
+   "type": "Defense"
+  },
+  {
+   "name": "Silence Robe",
+   "type": "Defense"
+  },
+  {
+   "name": "Ares Belt",
+   "type": "Defense"
+  },
+  {
+   "name": "Molten Essence",
+   "type": "Defense"
+  },
+  {
+   "name": "Wishing Lantern",
+   "type": "Magic"
+  },
+  {
+   "name": "寒冬权杖（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "锁魂项链（已删除）",
+   "type": ""
+  },
+  {
+   "name": "Shadow Twinblades",
+   "type": ""
+  },
+  {
+   "name": "Winter Crown",
+   "type": "Magic"
+  },
+  {
+   "name": "Elegant Gem",
+   "type": "Magic"
+  },
+  {
+   "name": "Feather of Heaven",
+   "type": "Magic"
+  },
+  {
+   "name": "Enchanted Talisman",
+   "type": "Magic"
+  },
+  {
+   "name": "Exotic Veil",
+   "type": "Magic"
+  },
+  {
+   "name": "Azure Blade",
+   "type": "Magic"
+  },
+  {
+   "name": "Magic Wand",
+   "type": "Magic"
+  },
+  {
+   "name": "Tome of Evil",
+   "type": "Magic"
+  },
+  {
+   "name": "Sky Piercer",
+   "type": "Attack"
+  },
+  {
+   "name": "百战神斧（已废弃）",
+   "type": ""
+  },
+  {
+   "name": "War Axe",
+   "type": "Attack"
+  },
+  {
+   "name": "Evil Hunter (removed)",
+   "type": ""
+  },
+  {
+   "name": "Greedy Crusher (removed)",
+   "type": ""
+  },
+  {
+   "name": "Wind of Nature",
+   "type": "Attack"
+  },
+  {
+   "name": "Corrosion Scythe",
+   "type": "Attack"
+  },
+  {
+   "name": "Golden Staff",
+   "type": "Attack"
+  },
+  {
+   "name": "Deadly Blade",
+   "type": ""
+  },
+  {
+   "name": "Demon Hunter Sword",
+   "type": "Attack"
+  },
+  {
+   "name": "Fury hammer",
+   "type": "Attack"
+  },
+  {
+   "name": "Magic Blade",
+   "type": "Attack"
+  },
+  {
+   "name": "Ogre Tomahawk",
+   "type": "Attack"
+  },
+  {
+   "name": "Rogue Meteor",
+   "type": "Attack"
+  },
+  {
+   "name": "Roaming Boots - Dire Hit",
+   "type": "Roam"
+  },
+  {
+   "name": "Legion Sword",
+   "type": "Attack"
+  },
+  {
+   "name": "Roaming Boots - Favor",
+   "type": "Roam"
+  },
+  {
+   "name": "Roaming Boots - Encourage",
+   "type": "Roam"
+  },
+  {
+   "name": "Roaming Boots - Conceal",
+   "type": "Roam"
+  },
+  {
+   "name": "Wooden Mask",
+   "type": ""
+  },
+  {
+   "name": "Behemoth Hunter's Speed Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Flame Hunter's Speed Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Ice Hunter's Speed Boots",
+   "type": "Jungle"
+  },
+  {
+   "name": "Hunter's Knife",
+   "type": ""
+  },
+  {
+   "name": "Rock Potion",
+   "type": "Defense"
+  },
+  {
+   "name": "Boots",
+   "type": "Movement"
+  },
+  {
+   "name": "Healing Necklace",
+   "type": "Defense"
+  },
+  {
+   "name": "Hero's Ring",
+   "type": "Defense"
+  },
+  {
+   "name": "Magic Resist Cloak",
+   "type": "Defense"
+  },
+  {
+   "name": "Leather Jerkin",
+   "type": "Defense"
+  },
+  {
+   "name": "Resonating Heart",
+   "type": "Magic"
+  },
+  {
+   "name": "Vitality Crystal",
+   "type": "Defense"
+  },
+  {
+   "name": "Broken Heart",
+   "type": "Magic"
+  },
+  {
+   "name": "Allow Throw",
+   "type": "Magic"
+  },
+  {
+   "name": "Magic Potion",
+   "type": "Magic"
+  },
+  {
+   "name": "Throw Forbidden",
+   "type": "Magic"
+  },
+  {
+   "name": "Mystic Container",
+   "type": "Magic"
+  },
+  {
+   "name": "Book of Sages",
+   "type": "Magic"
+  },
+  {
+   "name": "Magic Necklace",
+   "type": "Magic"
+  },
+  {
+   "name": "Power Crystal",
+   "type": "Magic"
+  },
+  {
+   "name": "Mystery Codex",
+   "type": "Magic"
+  },
+  {
+   "name": "Power Potion",
+   "type": "Attack"
+  },
+  {
+   "name": "Swift Crossbow",
+   "type": "Attack"
+  },
+  {
+   "name": "Iron Hunting Bow",
+   "type": "Attack"
+  },
+  {
+   "name": "Expert Gloves",
+   "type": "Attack"
+  },
+  {
+   "name": "Regular Spear",
+   "type": "Attack"
+  },
+  {
+   "name": "Javelin",
+   "type": "Attack"
+  },
+  {
+   "name": "Vampire Mallet",
+   "type": "Attack"
+  },
+  {
+   "name": "Knife",
+   "type": "Attack"
+  },
+  {
+   "name": "Dagger",
+   "type": "Attack"
+  }
+ ],
+ "talents": [
+  "Weapons Master",
+  "Weakness Finder",
+  "Fatal",
+  "Focusing Mark",
+  "Agility",
+  "Festival of Blood",
+  "Pull Yourself Together",
+  "Brave Smite",
+  "Lethal Ignition",
+  "Firmness",
+  "Inspire",
+  "Bargain Hunter",
+  "Master Assassin",
+  "Killing Spree",
+  "Rupture",
+  "Concussive Blast",
+  "Vitality",
+  "Temporal Reign",
+  "Quantum Charge",
+  "Tenacity",
+  "War Cry",
+  "Impure Rage",
+  "Wilderness Blessing",
+  "Seasoned Hunter",
+  "Thrill",
+  "Swift"
+ ],
+ "spells": [
+  "Arrival",
+  "Vengeance",
+  "Purify",
+  "Execute",
+  "Flameshot",
+  "Flicker",
+  "Revitalize",
+  "Sprint",
+  "Petrify",
+  "Aegis",
+  "Retribution",
+  "Inspire"
+ ],
+ "heroes": [
+  "Miya",
+  "Balmond",
+  "Saber",
+  "Alice",
+  "Nana",
+  "Tigreal",
+  "Alucard",
+  "Karina",
+  "Akai",
+  "Franco",
+  "Bane",
+  "Bruno",
+  "Clint",
+  "Rafaela",
+  "Eudora",
+  "Zilong",
+  "Fanny",
+  "Layla",
+  "Minotaur",
+  "Lolita",
+  "Hayabusa",
+  "Freya",
+  "Gord",
+  "Natalia",
+  "Kagura",
+  "Chou",
+  "Sun",
+  "Alpha",
+  "Ruby",
+  "Yi Sun-shin",
+  "Moskov",
+  "Johnson",
+  "Cyclops",
+  "Estes",
+  "Hilda",
+  "Aurora",
+  "Lapu-Lapu",
+  "Vexana",
+  "Roger",
+  "Karrie",
+  "Gatotkaca",
+  "Harley",
+  "Irithel",
+  "Grock",
+  "Argus",
+  "Odette",
+  "Lancelot",
+  "Diggie",
+  "Hylos",
+  "Zhask",
+  "Helcurt",
+  "Pharsa",
+  "Lesley",
+  "Jawhead",
+  "Angela",
+  "Gusion",
+  "Valir",
+  "Martis",
+  "Uranus",
+  "Hanabi",
+  "Chang'e",
+  "Kaja",
+  "Selena",
+  "Aldous",
+  "Claude",
+  "Vale",
+  "Leomord",
+  "Lunox",
+  "Hanzo",
+  "Belerick",
+  "Kimmy",
+  "Thamuz",
+  "Harith",
+  "Minsitthar",
+  "Kadita",
+  "Faramis",
+  "Badang",
+  "Khufra",
+  "Granger",
+  "Guinevere",
+  "Esmeralda",
+  "Terizla",
+  "X.Borg",
+  "Ling",
+  "Dyrroth",
+  "Lylia",
+  "Baxia",
+  "Masha",
+  "Wanwan",
+  "Silvanna",
+  "Cecilion",
+  "Carmilla",
+  "Atlas",
+  "Popol and Kupa",
+  "Yu Zhong",
+  "Luo Yi",
+  "Benedetta",
+  "Khaleed",
+  "Barats",
+  "Brody",
+  "Yve",
+  "Mathilda",
+  "Paquito",
+  "Gloo",
+  "Beatrix",
+  "Phoveus",
+  "Natan",
+  "Aulus",
+  "Aamon",
+  "Valentina",
+  "Edith",
+  "Floryn",
+  "Yin",
+  "Melissa",
+  "Xavier",
+  "Julian",
+  "Fredrinn",
+  "Joy",
+  "Novaria",
+  "Arlott",
+  "Ixia",
+  "Nolan",
+  "Cici",
+  "Chip",
+  "Zhuxin",
+  "Suyou",
+  "Lukas",
+  "Kalea",
+  "Zetian",
+  "Obsidia",
+  "Sora",
+  "Marcel",
+  "Hirara"
+ ],
+ "itemsGone": [
+  "Bloody Retribution",
+  "Flame Retribution",
+  "Ice Retribution",
+  "Conceal",
+  "Dire Hit",
+  "Encourage",
+  "Favor"
+ ]
+}
