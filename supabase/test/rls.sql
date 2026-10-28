@@ -255,10 +255,77 @@ select t.eq((select count(*) from public.posts where user_id = '00000000-0000-00
 set role authenticated; select t.login('00000000-0000-0000-0000-00000000000a');
 select t.fails($q$insert into public.posts(kind,title,payload) values ('build','bulk 6',t.v('x6'))$q$, 'post_quota');
 
--- batas laju komentar (30/jam)
+-- batas laju komentar (30/jam). Komentar lama B dibersihkan dulu: duel di atas menghapus satu post acak, bisa jadi bersama komentarnya.
+reset role;
+delete from public.comments where user_id = '00000000-0000-0000-0000-00000000000b';
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+insert into public.comments(post_id, body) select (select id from public.posts where title='Tim A'), 'k' || i from generate_series(1, 30) i;
+select t.fails($q$insert into public.comments(post_id, body) select id, 'k31' from public.posts where title='Tim A'$q$, 'rate_limit_comments');
+
+-- ---------- profil v2: bio & hero utama ----------
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+update public.profiles set bio = 'Main jungle, suka Ling', main_hero = 'ling' where id = '00000000-0000-0000-0000-00000000000b';
+reset role;
+select t.eq((select bio from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'Main jungle, suka Ling', 'profil: pemilik bisa mengisi bio');
+select t.eq((select main_hero from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'ling', 'profil: pemilik bisa memilih hero utama');
+select t.eq((select bio from public.profiles where id = '00000000-0000-0000-0000-00000000000c'), '', 'profil: bio default kosong');
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+update public.profiles set bio = 'diretas' where id = '00000000-0000-0000-0000-00000000000c';
+reset role;
+select t.eq((select bio from public.profiles where id = '00000000-0000-0000-0000-00000000000c'), '', 'profil: tidak bisa mengubah bio orang lain');
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+select t.fails($q$update public.profiles set bio = repeat('x', 161) where id = auth.uid()$q$, 'profiles_bio_check');
+select t.fails($q$update public.profiles set bio = E'baris\x01kontrol' where id = auth.uid()$q$, 'profiles_bio_check');
+select t.fails($q$update public.profiles set main_hero = 'Ling; drop' where id = auth.uid()$q$, 'profiles_main_hero_check');
+select t.fails($q$update public.profiles set main_hero = '' where id = auth.uid()$q$, 'profiles_main_hero_check');
+select t.fails($q$update public.profiles set created_at = now() where id = auth.uid()$q$, 'permission denied');
+update public.profiles set main_hero = null where id = auth.uid();
+reset role;
+select t.eq((select main_hero from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), null::text, 'profil: hero utama bisa dikosongkan');
+set role anon;
+select t.eq((select bio from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'Main jungle, suka Ling', 'profil: bio terbaca publik (anon)');
+
+-- ---------- simpanan (bookmark) ----------
+select t.fails($q$select * from public.bookmarks$q$, 'permission denied');
+select t.fails($q$insert into public.bookmarks(post_id) values (gen_random_uuid())$q$, 'permission denied');
+reset role; set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+insert into public.bookmarks(post_id) select id from public.posts where title in ('Tim B', 'Tim A');
+select t.eq((select count(*) from public.bookmarks), 2::bigint, 'bookmark: B menyimpan 2 tulisan');
+select t.eq((select user_id from public.bookmarks limit 1), '00000000-0000-0000-0000-00000000000b'::uuid, 'bookmark: user_id diisi auth.uid()');
+select t.fails($q$insert into public.bookmarks(post_id) select id from public.posts where title = 'Tim B'$q$, 'duplicate key');
+select t.fails($q$insert into public.bookmarks(user_id, post_id) select '00000000-0000-0000-0000-00000000000c', id from public.posts where title = 'Tim B'$q$, 'permission denied');
+select t.fails($q$insert into public.bookmarks(post_id) values (gen_random_uuid())$q$, 'row-level security');
+select t.login('00000000-0000-0000-0000-00000000000c');
+select t.eq((select count(*) from public.bookmarks), 0::bigint, 'bookmark: C tidak melihat simpanan B');
+delete from public.bookmarks;
 select t.login('00000000-0000-0000-0000-00000000000b');
-insert into public.comments(post_id, body) select (select id from public.posts where title='Layla crit'), 'k' || i from generate_series(1, 29) i;
-select t.fails($q$insert into public.comments(post_id, body) select id, 'k31' from public.posts where title='Layla crit'$q$, 'rate_limit_comments');
+select t.eq((select count(*) from public.bookmarks), 2::bigint, 'bookmark: C tidak bisa menghapus simpanan B');
+delete from public.bookmarks where post_id = (select id from public.posts where title = 'Tim A');
+select t.eq((select count(*) from public.bookmarks), 1::bigint, 'bookmark: B bisa melepas simpanan');
+-- tulisan yang disembunyikan tidak bisa disimpan
+reset role;
+insert into t.vars select 'tima_id', id::text from public.posts where title = 'Tim A';
+update public.posts set hidden = true where title = 'Tim A';
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+select t.fails($q$insert into public.bookmarks(post_id) values (t.v('tima_id')::uuid)$q$, 'row-level security');
+-- hapus tulisan -> simpanan ikut terhapus
+reset role;
+update public.posts set hidden = false where title = 'Tim A';
+delete from public.posts where title = 'Tim B';
+select t.eq((select count(*) from public.bookmarks), 0::bigint, 'bookmark: ikut terhapus saat tulisan dihapus (cascade)');
+-- kuota 200
+alter table public.posts disable trigger mbl_posts_before_insert;
+insert into public.posts(user_id, kind, title, payload)
+  select '00000000-0000-0000-0000-00000000000d', 'build', 'bm' || i,
+         translate(rtrim(encode(convert_to('{"n":"bm' || i || '","h":"layla"}', 'UTF8'), 'base64'), '='), '+/' || chr(10), '-_')
+  from generate_series(1, 201) i;
+alter table public.posts enable trigger mbl_posts_before_insert;
+set role authenticated; select t.login('00000000-0000-0000-0000-00000000000b');
+insert into public.bookmarks(post_id) select id from public.posts where title like 'bm%' order by title limit 200;
+select t.eq((select count(*) from public.bookmarks), 200::bigint, 'bookmark: tepat 200 diizinkan');
+select t.fails($q$insert into public.bookmarks(post_id) select id from public.posts where title like 'bm%' order by title desc limit 1$q$, 'bookmark_quota');
+reset role;
+delete from public.posts where title like 'bm%';
 
 -- ringkasan
 reset role;

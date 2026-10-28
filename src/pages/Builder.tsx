@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../auth';
 import { AddHeroModal } from '../components/AddHero';
 import { HeroPicker } from '../components/HeroPicker';
@@ -30,10 +30,19 @@ const blank = (): Build => ({
   updatedAt: Date.now(),
 });
 
+/** Draf dianggap "belum disimpan" kalau ada isinya dan tidak sama dengan versi tersimpannya. */
+function unsaved(d: Build, builds: Build[]): boolean {
+  const has = !!d.heroId || d.items.some(Boolean) || !!d.name.trim() || !!d.notes.trim();
+  if (!has) return false;
+  const b = builds.find((x) => x.id === d.id);
+  if (!b) return true;
+  return JSON.stringify([b.heroId, b.name, b.items, b.emblemId, b.talents, b.spellId, b.notes]) !== JSON.stringify([d.heroId, d.name, d.items, d.emblemId, d.talents, d.spellId, d.notes]);
+}
+
 const KINDS: (ItemKind | 'all')[] = ['all', 'attack', 'magic', 'hybrid', 'defense', 'boots', 'jungle', 'roam'];
 
 export function BuilderPage({ params }: { params: URLSearchParams }) {
-  const { heroes, heroMap, heroById, builds, saveBuild, deleteBuild, addHero } = useStore();
+  const { heroes, heroMap, heroById, builds, buildById, saveBuild, deleteBuild, addHero } = useStore();
   const notify = useToast();
   const { state: auth, requireLogin } = useAuth();
   const { catalog } = useLive();
@@ -53,21 +62,55 @@ export function BuilderPage({ params }: { params: URLSearchParams }) {
   const [q, setQ] = useState('');
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-  // Impor dari tautan bagikan
+  const [confirmSwap, setConfirmSwap] = useState<{ what: string; apply: () => void } | null>(null);
+  const isUnsaved = unsaved(draft, builds);
+  /** Menjalankan `apply`; kalau draf yang terbuka belum disimpan, minta konfirmasi dulu. */
+  const swap = (what: string, apply: () => void) => {
+    if (isUnsaved) setConfirmSwap({ what, apply });
+    else apply();
+  };
+  const openDraft = (b: Build) => {
+    setDraft(b);
+    setSlot(Math.max(0, b.items.findIndex((x) => !x)));
+    window.scrollTo({ top: 0 });
+  };
+  const withHero = (h: Hero): Build => {
+    const roleEmblem = EMBLEM_BY_ID[h.roles[0].toLowerCase()];
+    return { ...blank(), heroId: h.id, name: `${h.name} build`, ...(roleEmblem ? { emblemId: roleEmblem.id, talents: roleEmblem.recommended } : {}) };
+  };
+
+  // Tautan masuk: ?s= (tautan bagikan), ?new=1, ?edit=<id>, ?hero=<id>. Satu kali per navigasi.
+  const handled = useRef<URLSearchParams | null>(null);
   useEffect(() => {
+    if (handled.current === params) return;
+    handled.current = params;
     const s = params.get('s');
-    if (!s) return;
-    const b = decodeBuild(s, heroMap);
-    if (b) {
-      setDraft(b);
-      setSlot(Math.max(0, b.items.findIndex((x) => !x)));
-      notify('Build dari tautan dimuat. Simpan kalau mau dipertahankan.');
+    const edit = params.get('edit');
+    const heroId = params.get('hero');
+    if (s) {
+      const b = decodeBuild(s, heroMap);
+      if (b) {
+        openDraft(b);
+        notify('Build dari tautan dimuat. Simpan kalau mau dipertahankan.');
+      } else {
+        notify('Tautan build tidak valid, atau hero-nya tidak dikenal di daftar kamu.');
+      }
+    } else if (edit) {
+      const b = buildById(edit);
+      if (b) swap(`Membuka "${b.name || 'build tanpa nama'}"`, () => openDraft({ ...b }));
+      else notify('Build itu tidak ada di browser ini.');
+    } else if (heroId) {
+      const h = heroById(heroId);
+      if (h) swap(`Memulai build ${h.name}`, () => openDraft(withHero(h)));
+      else notify('Hero itu tidak ada di daftar kamu.');
+    } else if (params.get('new')) {
+      swap('Memulai build baru', () => openDraft(blank()));
     } else {
-      notify('Tautan build tidak valid, atau hero-nya tidak dikenal di daftar kamu.');
+      return;
     }
     clearQuery('builder');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params]);
 
   const hero = heroById(draft.heroId);
   const emblem = EMBLEM_BY_ID[draft.emblemId];
@@ -368,10 +411,7 @@ export function BuilderPage({ params }: { params: URLSearchParams }) {
           <button
             type="button"
             className="btn ghost"
-            onClick={() => {
-              setDraft(blank());
-              setSlot(0);
-            }}
+            onClick={() => swap('Memulai build baru', () => openDraft(blank()))}
           >
             Build baru
           </button>
@@ -409,11 +449,7 @@ export function BuilderPage({ params }: { params: URLSearchParams }) {
                     <button
                       type="button"
                       className="btn small"
-                      onClick={() => {
-                        setDraft({ ...b });
-                        setSlot(Math.max(0, b.items.findIndex((x) => !x)));
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
+                      onClick={() => swap(`Membuka "${b.name || 'build tanpa nama'}"`, () => openDraft({ ...b }))}
                     >
                       Edit
                     </button>
@@ -450,6 +486,29 @@ export function BuilderPage({ params }: { params: URLSearchParams }) {
         )}
       </section>
 
+      {confirmSwap && (
+        <Modal title="Ganti draf di editor?" onClose={() => setConfirmSwap(null)}>
+          <div className="stack">
+            <p>{confirmSwap.what} akan menggantikan draf yang sedang terbuka. Perubahan yang belum disimpan akan hilang.</p>
+            <div className="row end">
+              <button type="button" className="btn ghost" onClick={() => setConfirmSwap(null)}>
+                Tetap di draf ini
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  const go = confirmSwap.apply;
+                  setConfirmSwap(null);
+                  go();
+                }}
+              >
+                Ganti draf
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {pickHero && (
         <Modal title="Pilih hero" onClose={() => setPickHero(false)} wide>
           <HeroPicker heroes={heroes} onPick={onPickHero} selectedId={draft.heroId} />

@@ -60,8 +60,9 @@ import { mergeCatalog } from '../src/lib/catalog';
 import { diffSnapshots, renderReport, staticItemsGone, type ApiSnapshot } from '../src/lib/drift';
 import { recoToBuild } from '../src/lib/reco';
 import { readConfig } from '../src/lib/config';
-import { ago, cleanQuery, friendlyError, isUuid, parseComment, parsePost, winRate } from '../src/lib/community';
-import { emptyItems, emptySlots, uid } from '../src/lib/util';
+import { ago, cleanQuery, friendlyError, isUuid, parseActivity, parseComment, parsePost, parseProfile, statsFrom, tallyHeroes, winRate } from '../src/lib/community';
+import { makeBackup, readBackup } from '../src/lib/backup';
+import { avatarHue, emptyItems, emptySlots, greeting, uid } from '../src/lib/util';
 import type { Build, Hero, Team } from '../src/types';
 
 let failed = 0;
@@ -610,6 +611,85 @@ ok(withOriginKey('/api/x?a=1').startsWith('/api/x?a=1&_o=') && withOriginKey('/a
   ok(JSON.stringify(readConfig('https://abc.supabase.co', jwt('service_role'))) === '{"ok":false,"reason":"secret_key"}', 'readConfig: kunci service_role ditolak');
   ok(JSON.stringify(readConfig('https://abc.supabase.co', 'sb_secret_abc')) === '{"ok":false,"reason":"secret_key"}', 'readConfig: sb_secret_ ditolak');
   ok(readConfig('https://abc.supabase.co', 'sb_publishable_abc').ok, 'readConfig: sb_publishable_ diterima');
+
+  // --- profil, statistik, aktivitas ---
+  const prof = parseProfile({ id: ID, display_name: 'Eka', bio: 'Main jungle', main_hero: 'ling', created_at: '2026-10-01T00:00:00Z' });
+  ok(!!prof && prof.name === 'Eka' && prof.bio === 'Main jungle' && prof.mainHero === 'ling' && prof.joinedAt > 0, 'parseProfile: valid');
+  ok(parseProfile({ id: ID, display_name: 'Eka', main_hero: 'Ling; drop' })?.mainHero === null, 'parseProfile: hero utama tidak valid -> null');
+  ok(parseProfile({ id: ID, display_name: '   ' }) === null && parseProfile({ id: 'x', display_name: 'a' }) === null, 'parseProfile: nama kosong / id salah ditolak');
+  ok(parseProfile({ id: ID, display_name: 'Eka' })?.bio === '', 'parseProfile: bio hilang -> kosong');
+
+  const tally = tallyHeroes([['layla', 'aldous'], ['layla'], ['layla', 'layla'], ['zilong'], ['aldous']]);
+  ok(tally[0].id === 'layla' && tally[0].count === 3 && tally[1].id === 'aldous' && tally[1].count === 2, 'tallyHeroes: hitung per tulisan (hero ganda dalam satu tulisan dihitung sekali)');
+  ok(tallyHeroes([['b'], ['a']]).map((x) => x.id).join() === 'a,b', 'tallyHeroes: seri diurutkan menurut id');
+  ok(tallyHeroes([['a'], ['b'], ['c']], 2).length === 2, 'tallyHeroes: batas teratas');
+
+  const st = statsFrom([
+    { kind: 'build', heroes: ['layla'], like_count: 4, comment_count: 1, duel_played: 3, duel_wins: 2 },
+    { kind: 'team', heroes: ['layla', 'aldous'], like_count: 1, comment_count: 0, duel_played: 0, duel_wins: 0 },
+    { kind: 'zzz', like_count: 99 },
+    null,
+    { kind: 'build', heroes: 'bukan larik', like_count: -3, comment_count: 'x' },
+  ]);
+  ok(st.posts === 3 && st.builds === 2 && st.teams === 1, 'statsFrom: hitung tulisan, baris rusak dilewati');
+  ok(st.likes === 5 && st.comments === 1 && st.duelPlayed === 3 && st.duelWins === 2, 'statsFrom: jumlah suka/komentar/duel, nilai negatif jadi 0');
+  ok(st.topHeroes[0].id === 'layla' && st.topHeroes[0].count === 2, 'statsFrom: hero teratas');
+  ok(statsFrom('bukan larik').posts === 0, 'statsFrom: bukan larik -> nol');
+
+  const act = parseActivity({ id: ID, post_id: ID, body: 'mantap', created_at: '2026-10-28T10:00:00Z', profiles: { display_name: 'Budi' }, posts: { title: 'Layla crit', user_id: ID } });
+  ok(!!act && act.author === 'Budi' && act.postTitle === 'Layla crit', 'parseActivity: valid');
+  ok(parseActivity({ id: ID, post_id: ID, body: 'x', posts: [] }) === null && parseActivity({ id: ID, post_id: ID, body: 5, posts: { title: 't' } }) === null, 'parseActivity: tanpa judul / body salah ditolak');
+
+  ok(friendlyError({ message: 'bookmark_quota' }).includes('200'), 'friendlyError: kuota simpanan');
+  ok(friendlyError({ message: 'violates check constraint "profiles_bio_check"' }).includes('Bio'), 'friendlyError: bio terlalu panjang');
+}
+
+// --- util tampilan ---
+{
+  const at = (h: number) => new Date(2026, 9, 28, h, 0, 0);
+  ok(greeting(at(5)) === 'Selamat pagi' && greeting(at(12)) === 'Selamat siang' && greeting(at(16)) === 'Selamat sore' && greeting(at(20)) === 'Selamat malam' && greeting(at(2)) === 'Selamat malam', 'greeting: pagi/siang/sore/malam');
+  ok(avatarHue('abc') === avatarHue('abc') && avatarHue('abc') !== avatarHue('abd') && avatarHue('x') >= 0 && avatarHue('x') < 360, 'avatarHue: stabil dan 0-359');
+}
+
+// --- cadangan data ---
+{
+  const hm = new Map(BASE_HEROES.map((h) => [h.id, h]));
+  const b1: Build = { id: 'b1', name: 'Layla crit', heroId: 'layla', items: [ITEMS[0].id, ITEMS[1].id, null, null, null, null], emblemId: '', talents: [], spellId: '', notes: 'catatan é', updatedAt: 1 };
+  const b2: Build = { ...b1, id: 'b2', name: 'Layla burst', items: [ITEMS[2].id, null, null, null, null, null] };
+  const t1: Team = { id: 't1', name: 'Tim A', updatedAt: 1, slots: { ...emptySlots(), Gold: { heroId: 'layla', buildId: 'b1' }, EXP: { heroId: 'aldous', buildId: null } } };
+  const custom: Hero = { id: 'hero-baru', name: 'Hero Baru', roles: ['Mage'], lanes: ['Mid'], custom: true };
+  const file = makeBackup([b1, b2], [t1], [custom, BASE_HEROES[0]], 5);
+  ok(file.heroes.length === 1 && file.builds.length === 2 && file.teams.length === 1 && file.version === 1, 'makeBackup: isi berkas (hanya hero kustom)');
+  const text = JSON.stringify(file);
+
+  const empty = readBackup(text, hm, { builds: [], teams: [] });
+  ok(empty.ok && empty.heroes.length === 1 && empty.heroes[0].custom === true, 'readBackup: hero kustom dipulihkan');
+  ok(empty.ok && empty.builds.length === 2 && empty.teams.length === 1 && empty.skipped === 0 && empty.duplicates === 0, 'readBackup: ke perangkat kosong semua masuk, build di dalam komposisi tidak dobel');
+  if (empty.ok) {
+    const gold = empty.teams[0].slots.Gold.buildId;
+    ok(!!gold && empty.builds.some((b) => b.id === gold && b.name === 'Layla crit'), 'readBackup: komposisi menunjuk build hasil pulihan');
+    ok(empty.builds.find((b) => b.name === 'Layla crit')?.notes === 'catatan é', 'readBackup: catatan unicode utuh');
+  }
+  const again = readBackup(text, hm, { builds: empty.ok ? empty.builds : [], teams: empty.ok ? empty.teams : [] });
+  ok(again.ok && again.builds.length === 0 && again.teams.length === 0 && again.duplicates === 3, 'readBackup: pulihkan dua kali -> semua dianggap duplikat');
+  const withCustom = new Map(hm);
+  withCustom.set('hero-baru', custom);
+  const noDupHero = readBackup(text, withCustom, { builds: [], teams: [] });
+  ok(noDupHero.ok && noDupHero.heroes.length === 0, 'readBackup: hero yang sudah ada tidak ditambah lagi');
+
+  ok(!readBackup('bukan json', hm, { builds: [], teams: [] }).ok, 'readBackup: bukan JSON ditolak');
+  ok(!readBackup('{"app":"lain","version":1}', hm, { builds: [], teams: [] }).ok, 'readBackup: berkas aplikasi lain ditolak');
+  ok(!readBackup('{"app":"mlbb-build-lab","version":2}', hm, { builds: [], teams: [] }).ok, 'readBackup: versi tak dikenal ditolak');
+  ok(!readBackup('x'.repeat(2_000_001), hm, { builds: [], teams: [] }).ok, 'readBackup: berkas terlalu besar ditolak');
+  const dirty = JSON.stringify({ ...file, builds: [...file.builds, 'AAAA', 5, null], teams: ['bukan', ...file.teams], heroes: [{ id: 'Bad Id!', name: 'x', roles: ['Mage'] }, { id: 'ok-id', name: 'Ok', roles: ['Nope'] }] });
+  const d = readBackup(dirty, hm, { builds: [], teams: [] });
+  ok(d.ok && d.skipped === 6 && d.builds.length === 2 && d.teams.length === 1, 'readBackup: entri rusak dilewati dan dihitung, sisanya tetap masuk');
+  const unknownHero = JSON.stringify({ ...file, heroes: [] });
+  const u = readBackup(unknownHero, hm, { builds: [], teams: [] });
+  ok(u.ok && u.builds.length === 2, 'readBackup: build hero bawaan tetap terbaca tanpa daftar hero kustom');
+  const badHeroBuild = makeBackup([{ ...b1, heroId: 'hero-baru' }], [], [custom]);
+  const noHeroList = readBackup(JSON.stringify({ ...badHeroBuild, heroes: [] }), hm, { builds: [], teams: [] });
+  ok(noHeroList.ok && noHeroList.builds.length === 0 && noHeroList.skipped === 1, 'readBackup: build milik hero kustom yang tidak ikut tercadang dibuang');
 }
 
 void emptyItems;

@@ -23,6 +23,15 @@ create table if not exists public.profiles (
   created_at   timestamptz not null default now()
 );
 
+-- Kolom profil tambahan (v2). `add column if not exists` aman dijalankan ulang
+-- dan tidak mengubah profil yang sudah ada.
+--   bio       : teks polos <= 160 karakter, tampil publik (tanpa tautan/format).
+--   main_hero : id hero (slug, mis. 'layla'), hero utama yang dipajang di profil.
+alter table public.profiles add column if not exists bio text not null default ''
+  check (char_length(bio) <= 160 and bio !~ '[\x00-\x09\x0b-\x1f]');
+alter table public.profiles add column if not exists main_hero text
+  check (main_hero is null or (char_length(main_hero) between 1 and 60 and main_hero ~ '^[a-z0-9-]+$'));
+
 -- Buat profil dari data akun. Hanya KATA PERTAMA nama Google yang dipakai
 -- (privasi); pemain bisa menggantinya sendiri. Email tidak pernah dipakai.
 create or replace function public.mbl_make_profile(uid uuid)
@@ -238,6 +247,38 @@ drop trigger if exists mbl_likes_count on public.likes;
 create trigger mbl_likes_count
   after insert or delete on public.likes
   for each row execute function public.mbl_likes_count();
+
+-- ---------- Simpanan (bookmark) ----------------------------------------
+-- Pribadi: hanya pemilik yang bisa melihat daftarnya. Maksimal 200 per akun.
+create table if not exists public.bookmarks (
+  user_id    uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  post_id    uuid not null references public.posts (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+create index if not exists bookmarks_user_idx on public.bookmarks (user_id, created_at desc);
+
+create or replace function public.mbl_bookmarks_before_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  n integer;
+begin
+  select count(*) into n from public.bookmarks where user_id = new.user_id;
+  if n >= 200 then
+    raise exception 'bookmark_quota';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists mbl_bookmarks_before_insert on public.bookmarks;
+create trigger mbl_bookmarks_before_insert
+  before insert on public.bookmarks
+  for each row execute function public.mbl_bookmarks_before_insert();
 
 -- ---------- Komentar ---------------------------------------------------
 create table if not exists public.comments (
@@ -486,6 +527,7 @@ $$;
 alter table public.profiles   enable row level security;
 alter table public.posts      enable row level security;
 alter table public.likes      enable row level security;
+alter table public.bookmarks  enable row level security;
 alter table public.comments   enable row level security;
 alter table public.reports    enable row level security;
 alter table public.duel_votes enable row level security;
@@ -510,6 +552,14 @@ create policy likes_read   on public.likes for select to authenticated using (us
 create policy likes_insert on public.likes for insert to authenticated
   with check (user_id = auth.uid() and exists (select 1 from public.posts p where p.id = post_id and not p.hidden));
 create policy likes_delete on public.likes for delete to authenticated using (user_id = auth.uid());
+
+drop policy if exists bookmarks_read   on public.bookmarks;
+drop policy if exists bookmarks_insert on public.bookmarks;
+drop policy if exists bookmarks_delete on public.bookmarks;
+create policy bookmarks_read   on public.bookmarks for select to authenticated using (user_id = auth.uid());
+create policy bookmarks_insert on public.bookmarks for insert to authenticated
+  with check (user_id = auth.uid() and exists (select 1 from public.posts p where p.id = post_id and not p.hidden));
+create policy bookmarks_delete on public.bookmarks for delete to authenticated using (user_id = auth.uid());
 
 drop policy if exists comments_read   on public.comments;
 drop policy if exists comments_insert on public.comments;
@@ -536,11 +586,14 @@ create policy duel_votes_insert on public.duel_votes for insert to authenticated
 
 -- ---------- Hak akses (per kolom) -------------------------------------
 -- Supabase memberi anon/authenticated SEMUA hak pada tabel baru. Cabut dulu.
-revoke all on public.profiles, public.posts, public.likes, public.comments, public.reports, public.duel_votes
+revoke all on public.profiles, public.posts, public.likes, public.bookmarks, public.comments, public.reports, public.duel_votes
   from anon, authenticated;
 
 grant select on public.profiles   to anon, authenticated;
-grant update (display_name) on public.profiles to authenticated;
+grant update (display_name, bio, main_hero) on public.profiles to authenticated;
+
+grant select, delete on public.bookmarks to authenticated;
+grant insert (post_id) on public.bookmarks to authenticated;
 
 grant select on public.posts to anon, authenticated;
 grant insert (kind, title, note, payload) on public.posts to authenticated;
@@ -564,6 +617,7 @@ revoke execute on function public.mbl_on_auth_user_created()    from public, ano
 revoke execute on function public.mbl_decode_payload(text)      from public, anon, authenticated;
 revoke execute on function public.mbl_posts_before_insert()     from public, anon, authenticated;
 revoke execute on function public.mbl_likes_count()             from public, anon, authenticated;
+revoke execute on function public.mbl_bookmarks_before_insert() from public, anon, authenticated;
 revoke execute on function public.mbl_comments_before_insert()  from public, anon, authenticated;
 revoke execute on function public.mbl_comments_count()          from public, anon, authenticated;
 revoke execute on function public.mbl_reports_after_insert()    from public, anon, authenticated;

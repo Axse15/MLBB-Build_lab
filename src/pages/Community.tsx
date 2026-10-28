@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth';
-import { PostBody, PostNote, useDecoded } from '../components/PostBody';
+import { Glyph } from '../components/Glyph';
+import { PostBody, PostNote } from '../components/PostBody';
+import { Author, KIND_LABEL, LikeButton, SaveButton, UseButton, postLink, useBookmarks, useLikes } from '../components/PostCard';
+import { PagedPosts, PostSkeleton } from '../components/PostList';
 import { Modal, useToast } from '../components/ui';
 import {
-  PAGE,
   REPORT_REASONS,
   addComment,
   ago,
@@ -12,12 +14,11 @@ import {
   friendlyError,
   getPost,
   getPosts,
-  likedIds,
+  listBookmarks,
   listComments,
   listPosts,
   nextDuel,
   report,
-  setLike,
   vote,
   winRate,
   MIN_DUELS_FOR_RANK,
@@ -31,68 +32,13 @@ import { OFF_TEXT } from '../lib/config';
 import { hashFor } from '../route';
 import { useStore } from '../store';
 
-type View = 'feed' | 'duel' | 'mine';
+type View = 'feed' | 'duel' | 'saved';
 
-const KIND_LABEL: Record<PostKind, string> = { build: 'Build', team: 'Komposisi' };
 const SORTS: { id: SortKey; label: string; hint: string }[] = [
   { id: 'baru', label: 'Terbaru', hint: 'Urut waktu terbit' },
   { id: 'populer', label: 'Terpopuler', hint: 'Paling banyak disukai' },
   { id: 'adu', label: 'Juara adu', hint: `Peringkat menang di Adu (minimal ${MIN_DUELS_FOR_RANK} duel)` },
 ];
-
-/** Tautan ke tulisan yang bisa dibagikan. */
-const postLink = (id: string): string => `${window.location.origin}${window.location.pathname}${hashFor('community', { post: id })}`;
-
-function useLikes() {
-  const { db, state, requireLogin } = useAuth();
-  const notify = useToast();
-  const [liked, setLiked] = useState<Set<string>>(new Set());
-  const userId = state.status === 'in' ? state.userId : null;
-
-  useEffect(() => {
-    if (!userId) setLiked(new Set());
-  }, [userId]);
-
-  const load = useCallback(
-    async (ids: string[]) => {
-      if (!db || !userId || ids.length === 0) return;
-      try {
-        const s = await likedIds(db, ids);
-        setLiked((prev) => new Set([...prev, ...s]));
-      } catch {
-        /* status like gagal dimuat: tombol tetap bisa dipakai */
-      }
-    },
-    [db, userId],
-  );
-
-  const toggle = useCallback(
-    async (id: string, bump: (delta: number) => void) => {
-      if (!requireLogin('Masuk dengan Google untuk menyukai tulisan.')) return;
-      if (!db || !userId) return;
-      const was = liked.has(id);
-      const apply = (on: boolean) => {
-        setLiked((prev) => {
-          const n = new Set(prev);
-          if (on) n.add(id);
-          else n.delete(id);
-          return n;
-        });
-        bump(on ? 1 : -1);
-      };
-      apply(!was);
-      try {
-        await setLike(db, id, userId, !was);
-      } catch (e) {
-        apply(was);
-        notify(friendlyError(e));
-      }
-    },
-    [db, liked, notify, requireLogin, userId],
-  );
-
-  return { liked, load, toggle };
-}
 
 function Setup() {
   const { state } = useAuth();
@@ -101,7 +47,7 @@ function Setup() {
     <div className="page">
       <header className="page-head">
         <h1>Komunitas</h1>
-        <p className="muted">Jelajahi build dan komposisi pemain lain, beri like, komentar, dan adu.</p>
+        <p className="muted">Jelajahi build dan komposisi pemain lain, beri suka, komentar, dan adu.</p>
       </header>
       <section className="panel">
         <h2>Belum aktif</h2>
@@ -116,7 +62,7 @@ function SubNav({ view }: { view: View }) {
   const items: { id: View; label: string }[] = [
     { id: 'feed', label: 'Jelajah' },
     { id: 'duel', label: 'Adu' },
-    { id: 'mine', label: 'Punyaku' },
+    { id: 'saved', label: 'Disimpan' },
   ];
   return (
     <nav className="cm-subnav" aria-label="Bagian komunitas">
@@ -129,238 +75,103 @@ function SubNav({ view }: { view: View }) {
   );
 }
 
-function Author({ post }: { post: Pick<Post, 'author' | 'createdAt'> }) {
-  return (
-    <span className="muted small">
-      {post.author} · {ago(post.createdAt)}
-    </span>
-  );
-}
-
-function LikeButton({ count, on, onClick }: { count: number; on: boolean; onClick: () => void }) {
-  return (
-    <button type="button" className={`cm-like${on ? ' on' : ''}`} aria-pressed={on} aria-label={on ? `Batal suka, ${count} suka` : `Suka, ${count} suka`} onClick={onClick}>
-      <span aria-hidden="true">{on ? '♥' : '♡'}</span> {count}
-    </button>
-  );
-}
-
-function UseButton({ post }: { post: Post }) {
-  const d = useDecoded(post);
-  const page = post.kind === 'build' ? 'builder' : 'team';
-  if (!d) return null;
-  return (
-    <a className="btn small" href={hashFor(page, { s: post.payload })} title="Memuat ke editor dan menggantikan draft yang sedang terbuka">
-      {post.kind === 'build' ? 'Pakai build ini' : 'Pakai komposisi ini'}
-    </a>
-  );
-}
-
-function PostCard({ post, liked, onLike, mine, onDelete }: { post: Post; liked: boolean; onLike: () => void; mine: boolean; onDelete?: () => void }) {
-  const [confirm, setConfirm] = useState(false);
-  const rate = winRate(post);
-  return (
-    <li className="card cm-card">
-      <div className="cm-card-head">
-        <div className="grow">
-          <a className="cm-title" href={hashFor('community', { post: post.id })}>
-            {post.title}
-          </a>
-          <div>
-            <Author post={post} />
-            {post.hidden && <span className="tag static warn"> disembunyikan (laporan)</span>}
-          </div>
-        </div>
-        {rate !== null && post.duelPlayed >= MIN_DUELS_FOR_RANK && (
-          <span className="tag static" title={`${rate}% menang di Adu`}>
-            {post.duelWins}/{post.duelPlayed} menang
-          </span>
-        )}
-      </div>
-      <PostBody post={post} compact />
-      <PostNote post={post} clamp />
-      <div className="cm-card-foot">
-        <LikeButton count={post.likes} on={liked} onClick={onLike} />
-        <a className="cm-cmt" href={hashFor('community', { post: post.id })}>
-          💬 {post.comments}
-        </a>
-        <span className="grow" />
-        <UseButton post={post} />
-        {mine && onDelete && (
-          <button
-            type="button"
-            className={`btn small ${confirm ? 'danger' : 'ghost'}`}
-            onClick={() => {
-              if (confirm) onDelete();
-              else {
-                setConfirm(true);
-                window.setTimeout(() => setConfirm(false), 3000);
-              }
-            }}
-          >
-            {confirm ? 'Yakin hapus?' : 'Hapus'}
-          </button>
-        )}
-      </div>
-    </li>
-  );
-}
-
-function Feed({ mine }: { mine: boolean }) {
-  const { db, state, requireLogin } = useAuth();
+function HeroSelect({ value, onChange, label, anyLabel }: { value: string; onChange: (v: string) => void; label: string; anyLabel: string }) {
   const { heroes } = useStore();
-  const notify = useToast();
-  const likes = useLikes();
-  const userId = state.status === 'in' ? state.userId : undefined;
+  return (
+    <select className="input" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      <option value="">{anyLabel}</option>
+      {heroes
+        .filter((h) => !h.custom)
+        .map((h) => (
+          <option key={h.id} value={h.id}>
+            {h.name}
+          </option>
+        ))}
+    </select>
+  );
+}
 
+function KindSwitch({ kind, onChange }: { kind: PostKind; onChange: (k: PostKind) => void }) {
+  return (
+    <div className="chips seg" role="group" aria-label="Jenis">
+      {(['build', 'team'] as PostKind[]).map((k) => (
+        <button key={k} type="button" className={`chip plain${kind === k ? ' on' : ''}`} aria-pressed={kind === k} onClick={() => onChange(k)}>
+          {KIND_LABEL[k]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Feed({ initialHero }: { initialHero: string }) {
+  const { db } = useAuth();
   const [kind, setKind] = useState<PostKind>('build');
   const [sort, setSort] = useState<SortKey>('baru');
-  const [hero, setHero] = useState('');
+  const [hero, setHero] = useState(initialHero);
+  useEffect(() => setHero(initialHero), [initialHero]);
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [more, setMore] = useState(false);
-  const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [err, setErr] = useState('');
-  const [busyMore, setBusyMore] = useState(false);
-  const seq = useRef(0);
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(qInput), 350);
     return () => window.clearTimeout(t);
   }, [qInput]);
 
-  const needLogin = mine && state.status === 'out';
-  const waiting = mine && state.status === 'loading';
-
-  const load = useCallback(
-    async (offset: number) => {
-      if (!db || (mine && !userId)) return;
-      const my = ++seq.current;
-      try {
-        const res = await listPosts(db, { kind, hero: hero || undefined, q, sort, userId: mine ? userId : undefined, offset });
-        if (my !== seq.current) return;
-        setPosts((prev) => (offset === 0 ? res.posts : [...prev, ...res.posts.filter((p) => !prev.some((x) => x.id === p.id))]));
-        setMore(res.more);
-        setPhase('ready');
-        void likes.load(res.posts.map((p) => p.id));
-      } catch (e) {
-        if (my !== seq.current) return;
-        setErr(friendlyError(e));
-        setPhase('error');
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [db, kind, hero, q, sort, mine, userId, likes.load],
-  );
-
-  useEffect(() => {
-    setPhase('loading');
-    setPosts([]);
-    setMore(false);
-    void load(0);
-  }, [load]);
-
-  const remove = async (p: Post) => {
-    if (!db) return;
-    try {
-      await deletePost(db, p.id);
-      setPosts((prev) => prev.filter((x) => x.id !== p.id));
-      notify('Tulisan dihapus');
-    } catch (e) {
-      notify(friendlyError(e));
-    }
-  };
-
-  const loadMore = async () => {
-    setBusyMore(true);
-    await load(posts.length);
-    setBusyMore(false);
-  };
+  const load = useCallback((offset: number) => listPosts(db!, { kind, hero: hero || undefined, q, sort, offset }), [db, kind, hero, q, sort]);
+  const label = KIND_LABEL[kind].toLowerCase();
+  const tab = kind === 'build' ? 'Build hero' : 'Komposisi tim';
 
   return (
     <>
       <div className="panel cm-filters">
-        <div className="chips" role="group" aria-label="Jenis">
-          {(['build', 'team'] as PostKind[]).map((k) => (
-            <button key={k} type="button" className={`chip plain${kind === k ? ' on' : ''}`} aria-pressed={kind === k} onClick={() => setKind(k)}>
-              {KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
-        <div className="chips" role="group" aria-label="Urutan">
-          {SORTS.map((s) => (
-            <button key={s.id} type="button" title={s.hint} className={`chip plain${sort === s.id ? ' on' : ''}`} aria-pressed={sort === s.id} onClick={() => setSort(s.id)}>
-              {s.label}
-            </button>
-          ))}
+        <div className="cm-filter-bar">
+          <KindSwitch kind={kind} onChange={setKind} />
+          <div className="chips seg" role="group" aria-label="Urutan">
+            {SORTS.map((s) => (
+              <button key={s.id} type="button" title={s.hint} className={`chip plain${sort === s.id ? ' on' : ''}`} aria-pressed={sort === s.id} onClick={() => setSort(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="cm-filter-row">
-          <select className="input" value={hero} onChange={(e) => setHero(e.target.value)} aria-label="Filter hero">
-            <option value="">Semua hero</option>
-            {heroes.filter((h) => !h.custom).map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
+          <HeroSelect value={hero} onChange={setHero} label="Filter hero" anyLabel="Semua hero" />
           <input className="input" type="search" value={qInput} maxLength={40} placeholder="Cari judul atau catatan" aria-label="Cari" onChange={(e) => setQInput(e.target.value)} />
         </div>
       </div>
-
-      {needLogin ? (
-        <section className="panel">
-          <p>Masuk untuk melihat tulisanmu sendiri.</p>
-          <button type="button" className="btn primary" onClick={() => requireLogin('Masuk dengan Google untuk melihat tulisanmu.')}>
-            Masuk
-          </button>
-        </section>
-      ) : waiting || phase === 'loading' ? (
-        <p className="empty" role="status">
-          Memuat…
-        </p>
-      ) : phase === 'error' ? (
-        <section className="panel" role="alert">
-          <p className="cm-err">{err}</p>
-          <button type="button" className="btn" onClick={() => void load(0)}>
-            Coba lagi
-          </button>
-        </section>
-      ) : posts.length === 0 ? (
-        <p className="empty">
-          {q || hero || sort === 'adu'
+      <PagedPosts
+        load={load}
+        resetKey={`${kind}|${sort}|${hero}|${q}`}
+        empty={
+          q || hero || sort === 'adu'
             ? sort === 'adu' && !q && !hero
-              ? `Belum ada ${KIND_LABEL[kind].toLowerCase()} dengan ${MIN_DUELS_FOR_RANK} duel atau lebih.`
-              : 'Tidak ada yang cocok dengan filter ini.'
-            : mine
-              ? `Kamu belum menerbitkan ${KIND_LABEL[kind].toLowerCase()}. Buka tab ${kind === 'build' ? 'Build hero' : 'Komposisi tim'} lalu tekan “Bagikan ke komunitas”.`
-              : `Belum ada ${KIND_LABEL[kind].toLowerCase()} di komunitas. Jadilah yang pertama: tekan “Bagikan ke komunitas” di tab ${kind === 'build' ? 'Build hero' : 'Komposisi tim'}.`}
-        </p>
-      ) : (
-        <>
-          <ul className="cards cm-cards">
-            {posts.map((p) => (
-              <PostCard
-                key={p.id}
-                post={p}
-                liked={likes.liked.has(p.id)}
-                onLike={() => void likes.toggle(p.id, (d) => setPosts((ps) => ps.map((x) => (x.id === p.id ? { ...x, likes: Math.max(0, x.likes + d) } : x))))}
-                mine={!!userId && p.userId === userId}
-                onDelete={() => void remove(p)}
-              />
-            ))}
-          </ul>
-          {more && (
-            <div className="row center">
-              <button type="button" className="btn" disabled={busyMore} onClick={() => void loadMore()}>
-                {busyMore ? 'Memuat…' : `Muat ${PAGE} lagi`}
-              </button>
-            </div>
-          )}
-        </>
-      )}
+              ? `Belum ada ${label} dengan ${MIN_DUELS_FOR_RANK} duel atau lebih. Ikut Adu untuk mengisinya.`
+              : 'Tidak ada yang cocok dengan filter ini. Coba hapus filter hero atau kata pencarian.'
+            : `Belum ada ${label} di komunitas. Jadilah yang pertama: buka ${tab} lalu tekan “Bagikan ke komunitas”.`
+        }
+      />
     </>
   );
+}
+
+function Saved() {
+  const { db, state, requireLogin } = useAuth();
+  const load = useCallback((offset: number) => listBookmarks(db!, offset), [db]);
+  if (state.status === 'loading') return <PostSkeleton />;
+  if (state.status !== 'in') {
+    return (
+      <section className="panel">
+        <h2>Simpananmu</h2>
+        <p className="muted">Tulisan yang kamu simpan dari Jelajah muncul di sini, jadi bisa dibuka lagi kapan saja. Masuk untuk melihatnya.</p>
+        <div>
+          <button type="button" className="btn primary" onClick={() => requireLogin('Masuk dengan Google untuk melihat simpananmu.')}>
+            Masuk dengan Google
+          </button>
+        </div>
+      </section>
+    );
+  }
+  return <PagedPosts load={load} resetKey={`saved|${state.userId}`} removeOnUnsave empty="Belum ada yang disimpan. Tekan ikon penanda di kartu tulisan mana pun untuk menyimpannya di sini." />;
 }
 
 function ReportDialog({ what, onSend, onClose }: { what: string; onSend: (r: ReportReason) => Promise<void>; onClose: () => void }) {
@@ -436,6 +247,7 @@ function PostPage({ id }: { id: string }) {
   const { db, state, requireLogin } = useAuth();
   const notify = useToast();
   const likes = useLikes();
+  const bm = useBookmarks();
   const userId = state.status === 'in' ? state.userId : undefined;
 
   const [post, setPost] = useState<Post | null | undefined>(undefined);
@@ -453,6 +265,7 @@ function PostPage({ id }: { id: string }) {
       setPost(p);
       if (p) {
         void likes.load([p.id]);
+        void bm.load([p.id]);
         setComments(await listComments(db, id));
       }
     } catch (e) {
@@ -460,7 +273,7 @@ function PostPage({ id }: { id: string }) {
       setPost(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, id, likes.load]);
+  }, [db, id, likes.load, bm.load]);
 
   useEffect(() => {
     setPost(undefined);
@@ -492,13 +305,7 @@ function PostPage({ id }: { id: string }) {
     }
   };
 
-  if (post === undefined) {
-    return (
-      <p className="empty" role="status">
-        Memuat…
-      </p>
-    );
-  }
+  if (post === undefined) return <PostSkeleton n={1} />;
   if (!post) {
     return (
       <section className="panel" role="alert">
@@ -519,6 +326,7 @@ function PostPage({ id }: { id: string }) {
           ← Semua tulisan
         </a>
       </p>
+      <div className="cm-post-grid">
       <article className="panel cm-detail">
         <header className="cm-detail-head">
           <div className="grow">
@@ -536,10 +344,11 @@ function PostPage({ id }: { id: string }) {
             on={likes.liked.has(post.id)}
             onClick={() => void likes.toggle(post.id, (d) => setPost((p) => (p ? { ...p, likes: Math.max(0, p.likes + d) } : p)))}
           />
+          <SaveButton on={bm.saved.has(post.id)} onClick={() => void bm.toggle(post.id)} />
           <span className="grow" />
           <UseButton post={post} />
           <button type="button" className="btn small" onClick={() => void copy()}>
-            Salin tautan
+            <Glyph name="link" /> Salin tautan
           </button>
           {mine ? (
             <button
@@ -621,6 +430,7 @@ function PostPage({ id }: { id: string }) {
           </button>
         )}
       </section>
+      </div>
 
       {reporting && (
         <ReportDialog
@@ -645,7 +455,7 @@ function DuelSide({ label, post, picked, revealed, onPick, busy }: { label: stri
       <h3>{post.title}</h3>
       {revealed ? (
         <p className="muted small">
-          {post.author} · {rate === null ? 'belum ada duel' : `${rate}% menang dari ${post.duelPlayed} duel`}
+          <Author post={post} /> · {rate === null ? 'belum ada duel' : `${rate}% menang dari ${post.duelPlayed} duel`}
         </p>
       ) : (
         <p className="muted small">Penulis dan skor disembunyikan sampai kamu memilih.</p>
@@ -661,7 +471,6 @@ function DuelSide({ label, post, picked, revealed, onPick, busy }: { label: stri
 
 function Duel() {
   const { db, state, requireLogin } = useAuth();
-  const { heroes } = useStore();
   const notify = useToast();
   const [kind, setKind] = useState<PostKind>('build');
   const [hero, setHero] = useState('');
@@ -729,21 +538,8 @@ function Duel() {
           peringkat memakai batas bawah statistik supaya 3 menang dari 3 tidak otomatis mengalahkan 40 menang dari 50.
         </p>
         <div className="cm-filter-row">
-          <div className="chips" role="group" aria-label="Jenis">
-            {(['build', 'team'] as PostKind[]).map((k) => (
-              <button key={k} type="button" className={`chip plain${kind === k ? ' on' : ''}`} aria-pressed={kind === k} onClick={() => setKind(k)}>
-                {KIND_LABEL[k]}
-              </button>
-            ))}
-          </div>
-          <select className="input" value={hero} onChange={(e) => setHero(e.target.value)} aria-label="Hero untuk diadu">
-            <option value="">{kind === 'build' ? 'Hero acak' : 'Semua hero'}</option>
-            {heroes.filter((h) => !h.custom).map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
+          <KindSwitch kind={kind} onChange={setKind} />
+          <HeroSelect value={hero} onChange={setHero} label="Hero untuk diadu" anyLabel={kind === 'build' ? 'Hero acak' : 'Semua hero'} />
         </div>
         <p className="small">
           <a className="link" href={hashFor('community')}>
@@ -817,21 +613,27 @@ function Duel() {
 export function CommunityPage({ params }: { params: URLSearchParams }) {
   const { state } = useAuth();
   const postId = params.get('post');
-  const view: View = params.get('view') === 'duel' ? 'duel' : params.get('view') === 'mine' ? 'mine' : 'feed';
+  const v = params.get('view');
+  const view: View = v === 'duel' ? 'duel' : v === 'saved' ? 'saved' : 'feed';
+
+  // Tautan lama "Punyaku" kini ada di profil.
+  useEffect(() => {
+    if (v === 'mine') window.location.replace(`${window.location.pathname}${window.location.search}${hashFor('profile')}`);
+  }, [v]);
 
   if (state.status === 'off') return <Setup />;
   return (
     <div className="page cm">
       <header className="page-head">
         <h1>Komunitas</h1>
-        <p className="muted">Build dan komposisi dari pemain lain. Melihat dan menyalin tidak perlu akun; posting, like, komentar, dan adu perlu login Google.</p>
+        <p className="muted">Build dan komposisi dari pemain lain. Melihat dan menyalin tidak perlu akun; posting, suka, komentar, simpan, dan adu perlu login Google.</p>
       </header>
       {postId ? (
         <PostPage id={postId} />
       ) : (
         <>
           <SubNav view={view} />
-          {view === 'duel' ? <Duel /> : <Feed key={view} mine={view === 'mine'} />}
+          {view === 'duel' ? <Duel /> : view === 'saved' ? <Saved /> : <Feed initialHero={/^[a-z0-9-]{1,60}$/.test(params.get('hero') ?? '') ? params.get('hero')! : ''} />}
         </>
       )}
     </div>

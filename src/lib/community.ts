@@ -126,6 +126,10 @@ export function friendlyError(e: unknown): string {
     ['duel_kind', 'Adu hanya antar jenis yang sama.'],
     ['duel_missing', 'Salah satu tulisan sudah dihapus atau disembunyikan.'],
     ['duel_same', 'Pasangan adu tidak valid.'],
+    ['bookmark_quota', 'Simpananmu sudah penuh (maksimal 200). Lepas beberapa dulu.'],
+    ['profiles_bio_check', 'Bio maksimal 160 karakter dan tanpa karakter kontrol.'],
+    ['profiles_main_hero_check', 'Hero utama tidak valid.'],
+    ['profiles_display_name_check', 'Nama tampilan 1 sampai 24 karakter.'],
   ];
   for (const [k, t] of table) if (msg.includes(k)) return t;
   if (code === '23505') return 'Sudah pernah dilakukan.';
@@ -157,6 +161,8 @@ export interface FeedQuery {
   /** Hanya tulisan milik pengguna ini (termasuk yang disembunyikan). */
   userId?: string;
   offset: number;
+  /** Jumlah baris per halaman (default PAGE). */
+  limit?: number;
 }
 
 export async function listPosts(db: SupabaseClient, f: FeedQuery): Promise<{ posts: Post[]; more: boolean }> {
@@ -169,9 +175,10 @@ export async function listPosts(db: SupabaseClient, f: FeedQuery): Promise<{ pos
   else if (f.sort === 'populer') req = req.order('like_count', { ascending: false }).order('comment_count', { ascending: false }).order('created_at', { ascending: false });
   else req = req.order('created_at', { ascending: false });
   req = req.order('id');
-  const rows = must(await req.range(f.offset, f.offset + PAGE));
+  const size = f.limit ?? PAGE;
+  const rows = must(await req.range(f.offset, f.offset + size));
   const all = parsePosts(rows);
-  return { posts: all.slice(0, PAGE), more: Array.isArray(rows) && rows.length > PAGE };
+  return { posts: all.slice(0, size), more: Array.isArray(rows) && rows.length > size };
 }
 
 export async function getPost(db: SupabaseClient, id: string): Promise<Post | null> {
@@ -257,6 +264,164 @@ export async function renameMe(db: SupabaseClient, userId: string, name: string)
   const rows = must(await db.from('profiles').update({ display_name: clean }).eq('id', userId).select('id'));
   if (Array.isArray(rows) && rows.length === 0) throw new Error('Profil tidak ditemukan');
   return clean;
+}
+
+// ---------------------------------------------------------------- Profil
+
+export interface Profile {
+  id: string;
+  name: string;
+  bio: string;
+  /** id hero utama (slug) atau null. */
+  mainHero: string | null;
+  joinedAt: number;
+}
+
+export const BIO_MAX = 160;
+const HERO_ID = /^[a-z0-9-]{1,60}$/;
+
+export function parseProfile(row: unknown): Profile | null {
+  if (!isObj(row) || !isUuid(row.id)) return null;
+  const name = str(row.display_name, 60);
+  if (!name || !name.trim()) return null;
+  return {
+    id: row.id,
+    name,
+    bio: str(row.bio, 400) ?? '',
+    mainHero: typeof row.main_hero === 'string' && HERO_ID.test(row.main_hero) ? row.main_hero : null,
+    joinedAt: when(row.created_at),
+  };
+}
+
+export async function getProfile(db: SupabaseClient, id: string): Promise<Profile | null> {
+  if (!isUuid(id)) return null;
+  const rows = must(await db.from('profiles').select('id,display_name,bio,main_hero,created_at').eq('id', id).limit(1));
+  return parseProfile(Array.isArray(rows) ? rows[0] : null);
+}
+
+export interface ProfileStats {
+  posts: number;
+  builds: number;
+  teams: number;
+  likes: number;
+  comments: number;
+  duelPlayed: number;
+  duelWins: number;
+  /** Hero yang paling sering muncul di tulisan pengguna ini, terbanyak dulu. */
+  topHeroes: { id: string; count: number }[];
+}
+
+/** Hitung hero terbanyak dari daftar larik hero. Seri diurutkan menurut id supaya hasilnya stabil. */
+export function tallyHeroes(lists: string[][], top = 5): { id: string; count: number }[] {
+  const n = new Map<string, number>();
+  for (const l of lists) for (const h of new Set(l)) n.set(h, (n.get(h) ?? 0) + 1);
+  return [...n.entries()].map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count || a.id.localeCompare(b.id)).slice(0, top);
+}
+
+/** Statistik dari baris ringan (tanpa payload). Baris yang bentuknya salah dilewati. */
+export function statsFrom(rows: unknown): ProfileStats {
+  const out: ProfileStats = { posts: 0, builds: 0, teams: 0, likes: 0, comments: 0, duelPlayed: 0, duelWins: 0, topHeroes: [] };
+  const heroes: string[][] = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!isObj(r) || (r.kind !== 'build' && r.kind !== 'team')) continue;
+    out.posts++;
+    if (r.kind === 'build') out.builds++;
+    else out.teams++;
+    out.likes += int(r.like_count) ?? 0;
+    out.comments += int(r.comment_count) ?? 0;
+    out.duelPlayed += int(r.duel_played) ?? 0;
+    out.duelWins += int(r.duel_wins) ?? 0;
+    if (Array.isArray(r.heroes)) heroes.push(r.heroes.filter((h): h is string => typeof h === 'string' && h.length <= 60));
+  }
+  out.topHeroes = tallyHeroes(heroes);
+  return out;
+}
+
+export async function profileStats(db: SupabaseClient, userId: string): Promise<ProfileStats> {
+  if (!isUuid(userId)) return statsFrom([]);
+  const rows = must(await db.from('posts').select('kind,heroes,like_count,comment_count,duel_played,duel_wins').eq('user_id', userId).limit(100));
+  return statsFrom(rows);
+}
+
+export async function updateProfile(db: SupabaseClient, userId: string, p: { name: string; bio: string; mainHero: string | null }): Promise<Profile> {
+  const name = p.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24);
+  if (!name) throw new Error('Nama tidak boleh kosong');
+  const bio = p.bio.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, BIO_MAX);
+  const mainHero = p.mainHero && HERO_ID.test(p.mainHero) ? p.mainHero : null;
+  const rows = must(
+    await db.from('profiles').update({ display_name: name, bio, main_hero: mainHero }).eq('id', userId).select('id,display_name,bio,main_hero,created_at'),
+  );
+  const prof = parseProfile(Array.isArray(rows) ? rows[0] : null);
+  if (!prof) throw new Error('Profil tidak ditemukan');
+  return prof;
+}
+
+// ---------------------------------------------------------------- Simpanan
+
+/** ID tulisan (dari `ids`) yang sudah kamu simpan. */
+export async function bookmarkedIds(db: SupabaseClient, ids: string[]): Promise<Set<string>> {
+  const ok = ids.filter(isUuid);
+  if (ok.length === 0) return new Set();
+  const rows = must(await db.from('bookmarks').select('post_id').in('post_id', ok));
+  return new Set((Array.isArray(rows) ? rows : []).map((r) => (isObj(r) ? r.post_id : null)).filter(isUuid));
+}
+
+export async function setBookmark(db: SupabaseClient, postId: string, userId: string, on: boolean): Promise<void> {
+  if (on) must(await db.from('bookmarks').insert({ post_id: postId }));
+  else must(await db.from('bookmarks').delete().eq('post_id', postId).eq('user_id', userId));
+}
+
+/** Simpananmu, terbaru dulu. Tulisan yang sudah dihapus/disembunyikan otomatis tidak muncul. */
+export async function listBookmarks(db: SupabaseClient, offset: number, limit = PAGE): Promise<{ posts: Post[]; more: boolean }> {
+  const rows = must(await db.from('bookmarks').select('post_id,created_at').order('created_at', { ascending: false }).range(offset, offset + limit));
+  const marks = (Array.isArray(rows) ? rows : []).filter(isObj).filter((r) => isUuid(r.post_id));
+  const page = marks.slice(0, limit).map((r) => r.post_id as string);
+  const posts = await getPosts(db, page);
+  const byId = new Map(posts.map((p) => [p.id, p]));
+  return { posts: page.map((id) => byId.get(id)).filter((p): p is Post => !!p), more: marks.length > limit };
+}
+
+// ---------------------------------------------------------------- Aktivitas & tren
+
+export interface Activity {
+  id: string;
+  postId: string;
+  postTitle: string;
+  author: string;
+  body: string;
+  createdAt: number;
+}
+
+export function parseActivity(row: unknown): Activity | null {
+  if (!isObj(row) || !isUuid(row.id) || !isUuid(row.post_id)) return null;
+  const body = str(row.body, 2000);
+  const post = Array.isArray(row.posts) ? row.posts[0] : row.posts;
+  const title = isObj(post) ? str(post.title, 200) : null;
+  if (body === null || title === null) return null;
+  return { id: row.id, postId: row.post_id, postTitle: title, author: authorOf(row.profiles), body, createdAt: when(row.created_at) };
+}
+
+/** Komentar terbaru dari orang lain pada tulisanmu. */
+export async function listActivity(db: SupabaseClient, userId: string, limit = 15): Promise<Activity[]> {
+  if (!isUuid(userId)) return [];
+  const rows = must(
+    await db
+      .from('comments')
+      .select('id,post_id,body,created_at,profiles!comments_user_id_fkey(display_name),posts!inner(title,user_id)')
+      .eq('posts.user_id', userId)
+      .neq('user_id', userId)
+      .eq('hidden', false)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  );
+  return Array.isArray(rows) ? rows.map(parseActivity).filter((a): a is Activity => a !== null) : [];
+}
+
+/** Hero yang paling sering dipakai di build terbaru komunitas. `sample` = berapa build yang dihitung. */
+export async function heroTrend(db: SupabaseClient, sample = 200): Promise<{ heroes: { id: string; count: number }[]; sample: number }> {
+  const rows = must(await db.from('posts').select('heroes').eq('kind', 'build').order('created_at', { ascending: false }).limit(sample));
+  const lists = (Array.isArray(rows) ? rows : []).filter(isObj).map((r) => (Array.isArray(r.heroes) ? r.heroes.filter((h): h is string => typeof h === 'string') : []));
+  return { heroes: tallyHeroes(lists, 6), sample: lists.length };
 }
 
 /** Persentase menang dibulatkan; null kalau belum ada duel. */

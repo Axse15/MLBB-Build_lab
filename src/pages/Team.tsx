@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth';
 import { HeroPicker } from '../components/HeroPicker';
 import { PublishDialog } from '../components/PublishDialog';
@@ -9,6 +9,14 @@ import { emptySlots, formatGold, uid } from '../lib/util';
 import { clearQuery, go, shareUrl } from '../route';
 import { usePersistent, useStore } from '../store';
 import { LANES, type Hero, type Lane, type Team } from '../types';
+
+/** Draf dianggap "belum disimpan" kalau ada hero di dalamnya dan tidak sama dengan versi tersimpannya. */
+function unsaved(d: Team, teams: Team[]): boolean {
+  const key = (t: Team) => JSON.stringify([t.name.trim(), LANES.map((l) => [t.slots[l]?.heroId ?? null, t.slots[l]?.buildId ?? null])]);
+  if (!LANES.some((l) => d.slots[l]?.heroId) && !d.name.trim()) return false;
+  const saved = teams.find((t) => t.id === d.id);
+  return !saved || key(saved) !== key(d);
+}
 
 const blankTeam = (): Team => ({ id: uid(), name: '', slots: emptySlots(), updatedAt: Date.now() });
 
@@ -35,21 +43,43 @@ export function TeamPage({ params }: { params: URLSearchParams }) {
   const [publishing, setPublishing] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-  // Impor dari tautan bagikan: build di dalam tautan ikut ditambahkan ke daftar build kamu.
+  const [confirmSwap, setConfirmSwap] = useState<{ what: string; apply: () => void } | null>(null);
+  const isUnsaved = unsaved(team, teams);
+  /** Menjalankan `apply`; kalau draf yang terbuka belum disimpan, minta konfirmasi dulu. */
+  const swap = (what: string, apply: () => void) => {
+    if (isUnsaved) setConfirmSwap({ what, apply });
+    else apply();
+  };
+
+  // Tautan masuk: ?s= (tautan bagikan; build di dalamnya ikut ditambahkan), ?new=1, ?load=<id>. Satu kali per navigasi.
+  const handled = useRef<URLSearchParams | null>(null);
   useEffect(() => {
+    if (handled.current === params) return;
+    handled.current = params;
     const s = params.get('s');
-    if (!s) return;
-    const res = decodeTeam(s, heroMap);
-    if (res) {
-      res.builds.forEach(saveBuild);
-      setTeam(res.team);
-      notify(`Komposisi dimuat${res.builds.length ? `, ${res.builds.length} build ditambahkan ke daftar kamu` : ''}.`);
+    const load = params.get('load');
+    if (s) {
+      const res = decodeTeam(s, heroMap);
+      if (res) {
+        res.builds.forEach(saveBuild);
+        setTeam(res.team);
+        window.scrollTo({ top: 0 });
+        notify(`Komposisi dimuat${res.builds.length ? `, ${res.builds.length} build ditambahkan ke daftar kamu` : ''}.`);
+      } else {
+        notify('Tautan komposisi tidak valid, atau ada hero yang tidak dikenal.');
+      }
+    } else if (load) {
+      const t = teams.find((x) => x.id === load);
+      if (t) swap(`Membuka "${t.name || 'komposisi tanpa nama'}"`, () => setTeam({ ...t, slots: { ...t.slots } }));
+      else notify('Komposisi itu tidak ada di browser ini.');
+    } else if (params.get('new')) {
+      swap('Memulai komposisi baru', () => setTeam(blankTeam()));
     } else {
-      notify('Tautan komposisi tidak valid, atau ada hero yang tidak dikenal.');
+      return;
     }
     clearQuery('team');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params]);
 
   const report = useMemo(() => analyzeComposition(team.slots, heroById, buildById), [team.slots, heroById, buildById]);
 
@@ -128,7 +158,7 @@ export function TeamPage({ params }: { params: URLSearchParams }) {
                       </label>
                       {options.length === 0 && (
                         <p className="muted small">
-                          Buat dulu di tab{' '}
+                          Buat dulu di halaman{' '}
                           <button type="button" className="link" onClick={() => go('builder')}>
                             Build hero
                           </button>
@@ -213,7 +243,7 @@ export function TeamPage({ params }: { params: URLSearchParams }) {
             Bagikan ke komunitas
           </button>
         )}
-        <button type="button" className="btn ghost" onClick={() => setTeam(blankTeam())}>
+        <button type="button" className="btn ghost" onClick={() => swap('Memulai komposisi baru', () => setTeam(blankTeam()))}>
           Komposisi baru
         </button>
       </div>
@@ -234,7 +264,7 @@ export function TeamPage({ params }: { params: URLSearchParams }) {
                   <strong>{t.name}</strong>
                   <p className="muted small clamp">{names.join(', ') || 'Kosong'}</p>
                   <div className="row">
-                    <button type="button" className="btn small" onClick={() => setTeam({ ...t, slots: { ...t.slots } })}>
+                    <button type="button" className="btn small" onClick={() => swap(`Membuka "${t.name || 'komposisi tanpa nama'}"`, () => setTeam({ ...t, slots: { ...t.slots } }))}>
                       Muat
                     </button>
                     <button
@@ -260,6 +290,29 @@ export function TeamPage({ params }: { params: URLSearchParams }) {
         )}
       </section>
 
+      {confirmSwap && (
+        <Modal title="Ganti draf di editor?" onClose={() => setConfirmSwap(null)}>
+          <div className="stack">
+            <p>{confirmSwap.what} akan menggantikan draf yang sedang terbuka. Perubahan yang belum disimpan akan hilang.</p>
+            <div className="row end">
+              <button type="button" className="btn ghost" onClick={() => setConfirmSwap(null)}>
+                Tetap di draf ini
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  const go = confirmSwap.apply;
+                  setConfirmSwap(null);
+                  go();
+                }}
+              >
+                Ganti draf
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {picking && (
         <Modal title={`Pilih hero untuk ${LANE_HINT[picking]}`} onClose={() => setPicking(null)} wide>
           <HeroPicker heroes={heroes} onPick={pick} selectedId={team.slots[picking].heroId ?? undefined} initialLane={picking} />

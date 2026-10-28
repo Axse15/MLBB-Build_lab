@@ -18,6 +18,8 @@ interface Auth {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   rename: (name: string) => Promise<void>;
+  /** Perbarui nama yang tampil di header setelah profil diubah di tempat lain. */
+  syncName: (name: string) => void;
   /** true = sudah masuk. Kalau belum, membuka dialog login dengan alasan `why` dan mengembalikan false. */
   requireLogin: (why: string) => boolean;
 }
@@ -141,6 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [userId],
   );
 
+  const syncName = useCallback((n: string) => setName(n), []);
+
   const state: AuthState = useMemo(() => {
     if (!config.ok) return { status: 'off', reason: config.reason };
     if (!ready) return { status: 'loading' };
@@ -157,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [state.status],
   );
 
-  const value = useMemo<Auth>(() => ({ state, db: supabase, signIn, signOut, rename, requireLogin }), [state, signIn, signOut, rename, requireLogin]);
+  const value = useMemo<Auth>(() => ({ state, db: supabase, signIn, signOut, rename, syncName, requireLogin }), [state, signIn, signOut, rename, syncName, requireLogin]);
   return (
     <Ctx.Provider value={value}>
       {children}

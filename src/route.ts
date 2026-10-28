@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-export type Page = 'builder' | 'team' | 'community' | 'patch' | 'mpl';
-const PAGES: Page[] = ['builder', 'team', 'community', 'patch', 'mpl'];
+export type Page = 'dashboard' | 'builder' | 'team' | 'community' | 'patch' | 'mpl' | 'profile' | 'settings';
+const PAGES: Page[] = ['dashboard', 'builder', 'team', 'community', 'patch', 'mpl', 'profile', 'settings'];
 
 export interface Route {
   page: Page;
@@ -11,7 +11,7 @@ export interface Route {
 export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#\/?/, '');
   const [path, query = ''] = raw.split('?');
-  const page = (PAGES as string[]).includes(path) ? (path as Page) : 'builder';
+  const page = (PAGES as string[]).includes(path) ? (path as Page) : 'dashboard';
   return { page, params: new URLSearchParams(query) };
 }
 

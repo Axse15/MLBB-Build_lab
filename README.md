@@ -1,14 +1,17 @@
 # MLBB Build Lab
 
-React + Vite + TypeScript. Lima halaman:
+React + Vite + TypeScript. Tampilan memakai sidebar (menu bawah di layar sempit), tema gelap/terang, dan pencarian cepat (**Ctrl+K**, atau `/`). Halaman:
 
-- **Build hero**: pilih hero, 6 item, emblem + talent, battle spell, catatan. Peringatan untuk boots ganda, item ganda, dan unique passive yang bentrok.
+- **Beranda**: ringkasan kerjamu. Draf komposisi dan build yang sedang dibuka, jumlah build/komposisi tersimpan, build terakhir diubah, hitung mundur playoff MPL, patch live terbaru, dan (kalau Komunitas aktif) hero yang sering muncul di build komunitas serta komentar baru di tulisanmu. Bagian "hero di build komunitas" baru ditampilkan setelah ada minimal 10 build; di bawah itu hanya ada pesan bahwa datanya belum cukup.
+- **Build hero**: pilih hero, 6 item, emblem + talent, battle spell, catatan. Peringatan untuk boots ganda, item ganda, dan unique passive yang bentrok. Membuka build lain atau memulai yang baru meminta konfirmasi kalau draf yang terbuka belum disimpan.
 - **Komposisi tim**: 5 lane, tiap hero dihubungkan ke build tersimpan. Catatan: hero ganda, tanpa Tank, tanpa Marksman/Mage, campuran damage physical vs magic (dihitung dari item di build).
-- **Komunitas** (opsional, butuh Supabase): jelajahi build dan komposisi pemain lain, like, komentar, lapor, dan **Adu** (dua tulisan, satu pilihan). Lihat bagian "Komunitas" di bawah.
+- **Komunitas** (opsional, butuh Supabase): jelajahi build dan komposisi pemain lain, suka, komentar, lapor, **simpan** ke daftar pribadi, dan **Adu** (dua tulisan, satu pilihan). Lihat bagian "Komunitas" di bawah.
+- **Profil** (butuh Komunitas): nama, bio (maks. 160 karakter), hero utama, statistik (tulisan, suka, komentar, hasil Adu), hero yang paling sering dibuat, serta tab Build, Komposisi, dan Disimpan. Profil orang lain dibuka dari nama penulis.
+- **Pengaturan**: tema, akun, dan **cadangan data** (unduh/pulihkan build, komposisi, hero kustom sebagai berkas JSON).
 - **Update patch**: catatan patch Original Server dan Advanced Server (hero, item, sistem), cari hero, filter buff/nerf. Patch lama hanya berisi jumlah perubahan.
 - **Jadwal MPL ID**: playoff S18 (4 - 8 Nov 2026, JIE Convention Surabaya), hitung mundur, dan pencatat pemenang lokal.
 
-Build, komposisi, dan hero kustom disimpan di `localStorage` (tanpa server). Tombol "Bagikan tautan" menyandikan data ke URL. Hanya fitur Komunitas yang memakai server (Supabase), dan hanya kalau kamu mengaktifkannya.
+Build, komposisi, dan hero kustom disimpan di `localStorage` (tanpa server), jadi hilang kalau data situs dibersihkan atau ganti browser: pakai cadangan di Pengaturan. Tombol "Bagikan tautan" menyandikan data ke URL. Hanya fitur Komunitas yang memakai server (Supabase), dan hanya kalau kamu mengaktifkannya.
 
 ## Jalankan
 
@@ -91,15 +94,15 @@ Sumber: [arena.rone.dev](https://arena.rone.dev), API komunitas tidak resmi (BSD
 
 ## Komunitas (Supabase + login Google)
 
-Tanpa konfigurasi, tab Komunitas hanya menampilkan "belum aktif" dan semua halaman lain tetap jalan. Untuk mengaktifkannya (sekali saja, sekitar 15 menit):
+Tanpa konfigurasi, halaman Komunitas hanya menampilkan "belum aktif" dan semua halaman lain tetap jalan. Untuk mengaktifkannya (sekali saja, sekitar 15 menit):
 
 1. **Proyek Supabase.** supabase.com, New project (region Singapore paling dekat). Catat *Project URL* dan kunci **anon / publishable** di Settings, API Keys.
-2. **Skema.** SQL Editor, New query, tempel seluruh `supabase/schema.sql`, Run. Aman diulang.
+2. **Skema.** SQL Editor, New query, tempel seluruh `supabase/schema.sql`, Run. Aman diulang, dan **wajib dijalankan lagi setiap kali `schema.sql` berubah** (versi terbaru menambah bio dan hero utama di profil serta tabel simpanan). Tanpa itu, Profil dan Simpan menampilkan galat.
 3. **Login Google.**
    - Google Cloud Console, APIs & Services, Credentials, Create credentials, OAuth client ID, tipe *Web application*. Authorized redirect URI: `https://<ref>.supabase.co/auth/v1/callback` (ref = bagian awal Project URL).
    - Supabase, Authentication, Sign In / Providers, Google: aktifkan, tempel Client ID dan Client Secret.
-   - Google Auth Platform, Audience: ubah status ke **In production**. Selama masih *Testing*, hanya akun yang kamu daftarkan sebagai test user yang bisa masuk. Cakupan default (email, profile, openid) tidak butuh verifikasi Google.
-4. **URL yang diizinkan.** Supabase, Authentication, URL Configuration: *Site URL* = alamat Vercel-mu; *Redirect URLs* tambahkan `https://<aplikasi>.vercel.app/**` dan `http://localhost:5173/**`. Alamat yang tidak terdaftar ditolak Supabase, dan itu penyebab paling umum "login tidak kembali ke situs".
+   - Google Auth Platform, Audience punya dua pilihan. **Testing** (bisa langsung dipakai): hanya email yang kamu daftarkan di *Test users* (maks. 100) yang bisa masuk. **In production** (untuk umum): tombol *Publish app* baru aktif setelah halaman Branding berisi nama aplikasi, email dukungan, **homepage**, dan **tautan kebijakan privasi** di domain yang terdaftar sebagai *Authorized domains*, dan Google meminta homepage berada di domain milik sendiri. Subdomain bersama seperti `*.vercel.app` kemungkinan tidak memenuhi syarat itu (belum bisa saya pastikan); jalur yang aman adalah domain sendiri yang diverifikasi di Google Search Console. Cakupan default (email, profile, openid) tidak butuh verifikasi aplikasi.
+4. **URL yang diizinkan.** Supabase, Authentication, URL Configuration: *Site URL* = alamat Vercel-mu **lengkap dengan `https://`** (tanpa itu Supabase membalas `requested path is invalid` setelah login Google); *Redirect URLs* tambahkan `https://<aplikasi>.vercel.app/**` dan `http://localhost:5173/**`. Alamat yang tidak terdaftar ditolak Supabase, dan itu penyebab paling umum "login tidak kembali ke situs".
 5. **Variabel lingkungan.** Lokal: buat `.env.local` (lihat `.env.example`). Vercel: Project Settings, Environment Variables, isi `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY`, lalu **Redeploy** (nilai `VITE_*` ditanam saat build, bukan saat dijalankan).
 6. `npm install` (menambah `@supabase/supabase-js`).
 
@@ -107,8 +110,8 @@ Tanpa konfigurasi, tab Komunitas hanya menampilkan "belum aktif" dan semua halam
 
 ### Apa yang tersimpan dan siapa melihat apa
 
-- Publik: judul, catatan, isi build/komposisi, nama tampilan (hanya **kata pertama** nama Google, bisa diganti di menu akun), jumlah like/komentar/adu. Email tidak pernah ditampilkan.
-- Hanya pemilik: like, suara adu, dan laporan yang dia buat. Laporan tidak terbaca oleh pengguna lain, termasuk pelapor lain.
+- Publik: judul, catatan, isi build/komposisi, nama tampilan (awalnya **kata pertama** nama Google, bisa diganti di Edit profil), bio, hero utama, tanggal bergabung, jumlah suka/komentar/adu. Email tidak pernah ditampilkan.
+- Hanya pemilik: suka, simpanan, suara adu, dan laporan yang dia buat. Laporan tidak terbaca oleh pengguna lain, termasuk pelapor lain.
 - Tulisan tidak bisa diedit (hapus lalu terbitkan ulang). Build dengan hero kustom tidak bisa dibagikan karena pembaca tidak punya hero itu.
 
 ### Batas yang dipasang di database
@@ -136,6 +139,9 @@ Untuk memblokir pengguna: Authentication, Users, pilih akun, Ban user (atau Dele
 ### Batasan yang perlu kamu tahu
 
 - **Tidak ada filter kata kasar.** Moderasi bergantung pada laporan dan kamu membuka dashboard.
+- **Bio dan nama tampilan tidak bisa dilaporkan.** Hanya tulisan dan komentar yang punya tombol lapor. Kalau ada bio atau nama yang melanggar, ubah langsung lewat SQL Editor (`update profiles set bio = '' where id = '<uuid>'`) atau blokir akunnya.
+- **Notifikasi hanya komentar baru** pada tulisanmu, dihitung dari data komentar; penanda "sudah dibaca" tersimpan di browser ini saja. Suka tidak memicu notifikasi karena daftar penyuka sengaja tidak bisa dibaca pemilik tulisan; jumlahnya terlihat di profil.
+- **Cadangan** tidak memuat draf yang belum disimpan, catatan hasil di halaman MPL, atau tema. Pemulihan hanya menambah data, tidak menimpa.
 - **Akun ganda.** Seorang pemain bisa membuat beberapa akun Google untuk menambah like, suara adu, atau (dengan tiga akun) menyembunyikan tulisan orang. Aturan "tidak boleh memilih di adu yang memuat tulisan sendiri" dan batas per jam hanya memperlambat, tidak mencegah.
 - **Adu mengukur selera pemilih di sini**, bukan kekuatan di game. Peringkat "Juara adu" memakai batas bawah Wilson dan baru muncul setelah minimal 3 duel. Build hanya diadu dengan build hero yang sama.
 - **Komunitas baru kosong.** Feed dan Adu baru terasa kalau ada belasan tulisan. Adu butuh minimal dua build dari hero yang sama dan bukan milikmu.
@@ -144,5 +150,5 @@ Untuk memblokir pengguna: Authentication, Users, pilih akun, Ban user (atau Dele
 
 ### Cara fitur ini diuji
 
-`supabase/test/` berisi pengujian skema yang dijalankan di PostgreSQL 16 sungguhan: `shim.sql` meniru bagian Supabase yang dipakai skema (peran `anon`/`authenticated`, `auth.uid()`, `auth.users`), `rls.sql` memeriksa RLS, hak per kolom, trigger, batas laju, auto-sembunyi, dan adu (96 pemeriksaan), `run.sh` menjalankannya, `gen-payloads.ts` membuat payload dari encoder asli aplikasi. Contoh: `npx tsx supabase/test/gen-payloads.ts > /tmp/vars.psql && PGHOST=127.0.0.1 PGUSER=postgres supabase/test/run.sh /tmp/vars.psql` (butuh PostgreSQL lokal; `shim.sql` jangan dijalankan di Supabase sungguhan).
+`supabase/test/` berisi pengujian skema yang dijalankan di PostgreSQL 16 sungguhan: `shim.sql` meniru bagian Supabase yang dipakai skema (peran `anon`/`authenticated`, `auth.uid()`, `auth.users`), `rls.sql` memeriksa RLS, hak per kolom, trigger, batas laju, auto-sembunyi, dan adu (121 pemeriksaan, termasuk profil dan simpanan), `run.sh` menjalankannya, `gen-payloads.ts` membuat payload dari encoder asli aplikasi. Contoh: `npx tsx supabase/test/gen-payloads.ts > /tmp/vars.psql && PGHOST=127.0.0.1 PGUSER=postgres supabase/test/run.sh /tmp/vars.psql` (butuh PostgreSQL lokal; `shim.sql` jangan dijalankan di Supabase sungguhan).
 Klien juga diuji end-to-end di browser terhadap PostgREST asli + skema itu. **Yang belum pernah diuji dengan layanan sungguhan**: Google OAuth dan GoTrue milik Supabase (hanya alur kembalinya `?code=` yang disimulasikan), serta perilaku proyek Supabase hosting (kuota, pembatasan). Uji sekali dengan akun Google-mu sendiri setelah deploy.

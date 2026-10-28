@@ -26,12 +26,28 @@ export function usePersistent<T>(key: string, initial: T, valid?: (v: unknown) =
   return [value, setValue] as const;
 }
 
+/** Baca nilai dari localStorage tanpa menulis apa pun. null = tidak ada, rusak, atau tidak lolos validasi. */
+export function readPersistent<T>(key: string, valid: (v: unknown) => boolean): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return valid(parsed) ? (parsed as T) : null;
+  } catch {
+    return null;
+  }
+}
+
 interface Store {
   heroes: Hero[];
   heroById: (id: string) => Hero | undefined;
   heroMap: Map<string, Hero>;
   addHero: (h: Omit<Hero, 'id' | 'custom'>) => Hero;
   removeHero: (id: string) => void;
+  /** Hero kustom milik perangkat ini (untuk cadangan). */
+  customHeroes: Hero[];
+  /** Gabungkan hasil pemulihan cadangan: yang sudah ada (id sama) tidak ditimpa. */
+  importAll: (data: { heroes: Hero[]; builds: Build[]; teams: Team[] }) => void;
   builds: Build[];
   buildById: (id: string) => Build | undefined;
   saveBuild: (b: Build) => void;
@@ -75,6 +91,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     heroById: (id) => heroMap.get(id),
     addHero,
     removeHero: (id) => setCustomHeroes((p) => p.filter((h) => h.id !== id)),
+    customHeroes,
+    importAll: ({ heroes: hs, builds: bs, teams: ts }) => {
+      const fresh = <T extends { id: string }>(prev: T[], add: T[]) => [...add.filter((x) => !prev.some((p) => p.id === x.id)), ...prev];
+      if (hs.length) setCustomHeroes((p) => [...p, ...hs.filter((h) => !p.some((x) => x.id === h.id))]);
+      if (bs.length) setBuilds((p) => fresh(p, bs));
+      if (ts.length) setTeams((p) => fresh(p, ts));
+    },
     builds,
     buildById: (id) => buildMap.get(id),
     saveBuild: (b) =>

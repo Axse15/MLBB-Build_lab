@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ELIMINATED,
   EVENT,
@@ -12,6 +12,7 @@ import {
   type PlayoffMatch,
   type Slot,
 } from '../data/mpl';
+import { Countdown } from '../components/Countdown';
 import { MatchDetailView, useSchedule } from '../components/MatchDetail';
 import { TeamLogo } from '../components/ui';
 import { ago, useLive } from '../live';
@@ -20,46 +21,6 @@ import { usePersistent } from '../store';
 
 const START = new Date(PLAYOFF_START_ISO).getTime();
 const END = new Date('2026-11-09T00:00:00+07:00').getTime();
-
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-function Countdown({ start = START, end = END }: { start?: number; end?: number }) {
-  const now = useNow(1000);
-  const diff = start - now;
-  if (diff <= 0) {
-    return (
-      <div className="countdown">
-        <strong>{now < end ? 'Playoff sedang berlangsung' : 'Playoff sudah selesai'}</strong>
-        <span className="muted small">{now < end ? 'Tonton lewat kanal YouTube MPL Indonesia.' : 'Cek hasil akhir di sumber di bawah.'}</span>
-      </div>
-    );
-  }
-  const d = Math.floor(diff / 86400000);
-  const h = Math.floor((diff % 86400000) / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  const s = Math.floor((diff % 60000) / 1000);
-  const cell = (n: number, label: string) => (
-    <div className="cd-cell">
-      <span className="cd-num">{String(n).padStart(2, '0')}</span>
-      <span className="cd-label">{label}</span>
-    </div>
-  );
-  return (
-    <div className="countdown" role="timer" aria-label={`Playoff dimulai dalam ${d} hari ${h} jam ${m} menit`}>
-      {cell(d, 'hari')}
-      {cell(h, 'jam')}
-      {cell(m, 'menit')}
-      {cell(s, 'detik')}
-    </div>
-  );
-}
 
 const fmtDate = (iso: string) =>
   new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Jakarta' }).format(new Date(`${iso}T12:00:00+07:00`));
@@ -107,7 +68,7 @@ function MplStatic({ embedded = false, banner }: { embedded?: boolean; banner?: 
           <h2>Playoff dimulai</h2>
           <p className="muted">Rabu, 4 November 2026, 13:00 WIB. Alter Ego Esports bertemu Onic di pertandingan pembuka.</p>
         </div>
-        <Countdown />
+        <Countdown start={START} end={END} />
       </section>
 
       <section className="panel">
